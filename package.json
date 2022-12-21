@@ -7,7 +7,7 @@
     "compile": "npx hardhat compile",
     "test": "npx hardhat test",
     "node": "npx hardhat node",
-    "deploy": "npx hardhat run scripts/deploy.ts --network hardhat"
+    "deploy": "npx hardhat run scripts/deploy.ts --network polygon_mumbai"
   },
   "repository": {
     "type": "git",

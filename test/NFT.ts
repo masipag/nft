@@ -4,11 +4,11 @@ import { ethers } from "hardhat";
 
 describe("NFT", function () {
   const settings = {
-    name: "100 ETH Game",
-    symbol: "1HETH",
+    name: "0.01 MATIC Game",
+    symbol: "PNT01MATIC",
     startDatetime: Date.now(),
     totalSupply: 100,
-    initialPrice: ethers.utils.parseEther('10'),
+    initialPrice: ethers.utils.parseEther("0.01"),
     maxPriceFactorPercentage: 100,
     transferFeePercentage: 50,
   };
@@ -51,10 +51,19 @@ describe("NFT", function () {
     it("Should be able to buy tickets", async function () {
       const { masipagNft, owner, buyer, seller } = await loadFixture(deployNftFixture);
       console.log("before", {
-        // contract: ethers.utils.formatEther(await ethers.getDefaultProvider().getBalance(masipagNft.address)),
-        owner: await masipagNft.balanceOf(owner.address),
-        buyer: await masipagNft.balanceOf(buyer.address),
-        seller: await masipagNft.balanceOf(seller.address),
+        contract: ethers.utils.formatEther(await ethers.provider.getBalance(masipagNft.address)),
+        owner: {
+          eth: ethers.utils.formatEther(await ethers.provider.getBalance(owner.address)),
+          token: (await masipagNft.balanceOf(owner.address)).toString(),
+        },
+        buyer: {
+          eth: ethers.utils.formatEther(await ethers.provider.getBalance(buyer.address)),
+          token: (await masipagNft.balanceOf(buyer.address)).toString(),
+        },
+        seller: {
+          eth: ethers.utils.formatEther(await ethers.provider.getBalance(seller.address)),
+          token: (await masipagNft.balanceOf(seller.address)).toString(),
+        },
       });
       await masipagNft.connect(seller).buy({ value: settings.initialPrice });
       const ticket = await masipagNft.get(0);
@@ -69,10 +78,19 @@ describe("NFT", function () {
       expect(await masipagNft.balanceOf(seller.address)).to.equal(0);
       expect(await masipagNft.balanceOf(buyer.address)).to.equal(1);
       console.log("after", {
-        // contract: ethers.utils.formatEther(await ethers.getDefaultProvider().getBalance(masipagNft.address)),
-        owner: await masipagNft.balanceOf(owner.address),
-        buyer: await masipagNft.balanceOf(buyer.address),
-        seller: await masipagNft.balanceOf(seller.address),
+        contract: ethers.utils.formatEther(await ethers.provider.getBalance(masipagNft.address)),
+        owner: {
+          eth: ethers.utils.formatEther(await ethers.provider.getBalance(owner.address)),
+          token: (await masipagNft.balanceOf(owner.address)).toString(),
+        },
+        buyer: {
+          eth: ethers.utils.formatEther(await ethers.provider.getBalance(buyer.address)),
+          token: (await masipagNft.balanceOf(buyer.address)).toString(),
+        },
+        seller: {
+          eth: ethers.utils.formatEther(await ethers.provider.getBalance(seller.address)),
+          token: (await masipagNft.balanceOf(seller.address)).toString(),
+        },
       });
     });
   });

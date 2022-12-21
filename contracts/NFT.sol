@@ -291,7 +291,6 @@ contract NFT is ERC721, Ownable {
         emit TicketDestroyed(msg.sender, _id);
     }
 
-    // withdraw balance stored in this contract
     function withdraw() public onlyOwner {
         uint256 balance = uint256(address(this).balance);
         withdrawalAddress.transfer(balance);
