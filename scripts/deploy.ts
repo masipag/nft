@@ -2,8 +2,8 @@ import { ethers } from "hardhat";
 
 async function main() {
   const settings = {
-    name: "0.01 ETH Game",
-    symbol: "PNT01HETH",
+    name: "0.01 MATIC Game",
+    symbol: "PNT01MATIC",
     startDatetime: Date.now(),
     totalSupply: 100,
     initialPrice: ethers.utils.parseEther("0.01"),

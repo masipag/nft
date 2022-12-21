@@ -56,16 +56,16 @@ describe("NFT", function () {
         buyer: await masipagNft.balanceOf(buyer.address),
         seller: await masipagNft.balanceOf(seller.address),
       });
-      await masipagNft.connect(seller).buyTicket({ value: settings.initialPrice });
-      const ticket = await masipagNft.getTicket(0);
+      await masipagNft.connect(seller).buy({ value: settings.initialPrice });
+      const ticket = await masipagNft.get(0);
       expect(ticket.price).to.equal(settings.initialPrice);
       expect(ticket.sale).to.equal(false);
       expect(ticket.used).to.equal(false);
-      await masipagNft.connect(seller).setTicketSale(0);
+      await masipagNft.connect(seller).setSale(0);
       expect(await masipagNft.balanceOf(seller.address)).to.equal(1);
 
-      await masipagNft.connect(seller).approveAsBuyerOfTicket(0, buyer.address);
-      await masipagNft.connect(buyer).buyTicketFromAttendee(0, { value: settings.initialPrice });
+      await masipagNft.connect(seller).approveBuy(0, buyer.address);
+      await masipagNft.connect(buyer).buyFromUser(0, { value: settings.initialPrice });
       expect(await masipagNft.balanceOf(seller.address)).to.equal(0);
       expect(await masipagNft.balanceOf(buyer.address)).to.equal(1);
       console.log("after", {
