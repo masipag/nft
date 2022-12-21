@@ -45,16 +45,21 @@ describe("NFT", function () {
     });
   });
 
-  describe("Buy and Sell", function () {
+  describe("Buy and Sell", async function () {
+    const { masipagNft, owner, otherAccount } = await loadFixture(deployNftFixture);
+    const seller = owner;
+    const buyer = otherAccount;
+
     it("Should be able to buy tickets", async function () {
-      const { masipagNft, otherAccount } = await loadFixture(deployNftFixture);
-      await masipagNft.connect(otherAccount).buyTicket({ value: settings.initialPrice });
+      await masipagNft.connect(seller).buyTicket({ value: settings.initialPrice });
       const ticket = await masipagNft.getTicket(0);
       expect(ticket.price).to.equal(settings.initialPrice);
-      expect(ticket.forSale).to.equal(false);
+      expect(ticket.sale).to.equal(false);
       expect(ticket.used).to.equal(false);
-      const balance = await masipagNft.balanceOf(otherAccount.address);
+      const balance = await masipagNft.balanceOf(seller.address);
       expect(balance).to.equal(1);
+
+      // await masipagNft.connect(buyer).buyTicketFromAttendee(0);
     });
   });
 });

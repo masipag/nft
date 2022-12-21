@@ -16,7 +16,7 @@ import "hardhat/console.sol";
 contract NFT is ERC721URIStorage, Pausable, Ownable {
     struct Ticket {
         uint256 price;
-        bool forSale;
+        bool sale;
         bool used;
     }
     Ticket[] tickets;
@@ -51,7 +51,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
 
     event TicketCreated(address _by, uint256 _ticketId);
     event TicketDestroyed(address _by, uint256 _ticketId);
-    event TicketForSale(address _by, uint256 _ticketId, uint256 _price);
+    event TicketSale(address _by, uint256 _ticketId, uint256 _price);
     event TicketSaleCancelled(address _by, uint256 _ticketId);
     event TicketSold(
         address _by,
@@ -155,7 +155,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
     }
 
     // offer ticket for sale, pre-approve transfer
-    function setTicketForSale(
+    function setTicketSale(
         uint256 _ticketId
     )
         external
@@ -164,14 +164,14 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
         ticketNotUsed(_ticketId)
         callerIsTicketOwner(_ticketId)
     {
-        tickets[_ticketId].forSale = true;
-        emit TicketForSale(msg.sender, _ticketId, tickets[_ticketId].price);
+        tickets[_ticketId].sale = true;
+        emit TicketSale(msg.sender, _ticketId, tickets[_ticketId].price);
     }
 
     function cancelTicketSale(
         uint256 _ticketId
     ) external eventNotStarted whenNotPaused callerIsTicketOwner(_ticketId) {
-        tickets[_ticketId].forSale = false;
+        tickets[_ticketId].sale = false;
         emit TicketSaleCancelled(msg.sender, _ticketId);
     }
 
@@ -180,9 +180,9 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
     // Returns all the relevant information about a specific ticket
     function getTicket(
         uint256 _id
-    ) external view returns (uint256 price, bool forSale, bool used) {
+    ) external view returns (uint256 price, bool sale, bool used) {
         price = uint256(tickets[_id].price);
-        forSale = bool(tickets[_id].forSale);
+        sale = bool(tickets[_id].sale);
         used = bool(tickets[_id].used);
     }
 
@@ -214,7 +214,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
     function getTicketResaleStatus(
         uint256 _ticketId
     ) public view returns (bool) {
-        return tickets[_ticketId].forSale;
+        return tickets[_ticketId].sale;
     }
 
     // check ownership of ticket
@@ -239,7 +239,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
     {
         Ticket memory _ticket = Ticket({
             price: initialPrice,
-            forSale: bool(false),
+            sale: bool(false),
             used: bool(false)
         });
         tickets.push(_ticket);
@@ -277,7 +277,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
     function buyTicketFromAttendee(
         uint256 _ticketId
     ) external payable eventNotStarted whenNotPaused {
-        require(tickets[_ticketId].forSale = true, "ticket not for sale");
+        require(tickets[_ticketId].sale = true, "ticket not for sale");
         require(getApproved(_ticketId) == msg.sender, "not approved");
         uint256 _priceToPay = tickets[_ticketId].price;
         address payable _seller = payable(address(uint160(ownerOf(_ticketId))));
@@ -292,7 +292,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
         _seller.transfer(_netPrice);
         emit TicketSold(_seller, msg.sender, _ticketId, _priceToPay);
         safeTransferFrom(_seller, msg.sender, _ticketId);
-        tickets[_ticketId].forSale = false;
+        tickets[_ticketId].sale = false;
     }
 
     function destroyTicket(
