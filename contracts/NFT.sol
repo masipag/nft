@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
@@ -277,7 +277,7 @@ contract NFT is ERC721URIStorage, Pausable, Ownable {
     function buyTicketFromAttendee(
         uint256 _ticketId
     ) external payable eventNotStarted whenNotPaused {
-        require(tickets[_ticketId].sale = true, "ticket not for sale");
+        require(tickets[_ticketId].sale == true, "ticket not for sale");
         require(getApproved(_ticketId) == msg.sender, "not approved");
         uint256 _priceToPay = tickets[_ticketId].price;
         address payable _seller = payable(address(uint160(ownerOf(_ticketId))));
