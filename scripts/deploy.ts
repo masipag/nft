@@ -2,18 +2,18 @@ import { ethers } from "hardhat";
 
 async function main() {
   const settings = {
-    name: "0.01 MATIC Game",
-    symbol: "PNT01MATIC",
+    name: "1 MATIC Game",
+    symbol: "1MG",
     startDatetime: Date.now(),
     totalSupply: 100,
-    initialPrice: ethers.utils.parseEther("0.01"),
+    initialPrice: ethers.utils.parseEther("1"),
     maxPriceFactorPercentage: 100,
     transferFeePercentage: 50,
   };
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
-  const Nft = await ethers.getContractFactory("NFT");
+  const Nft = await ethers.getContractFactory("NFT", deployer);
   const nft = await Nft.deploy(
     settings.name,
     settings.symbol,

@@ -4,11 +4,11 @@ import { ethers } from "hardhat";
 
 describe("NFT", function () {
   const settings = {
-    name: "0.01 MATIC Game",
-    symbol: "PNT01MATIC",
+    name: "1 MATIC Game",
+    symbol: "1MG",
     startDatetime: Date.now(),
     totalSupply: 100,
-    initialPrice: ethers.utils.parseEther("0.01"),
+    initialPrice: ethers.utils.parseEther("1"),
     maxPriceFactorPercentage: 100,
     transferFeePercentage: 50,
   };
