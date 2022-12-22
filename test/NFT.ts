@@ -70,7 +70,7 @@ describe("NFT", function () {
       expect(tickets.length).to.equal(1);
     });
 
-    it("Should be able to buy tickets", async function () {
+    it("Should be able to buy and sell tickets", async function () {
       const { masipagNft, owner, buyer, seller } = await loadFixture(deployNftFixture);
 
       const ownerBalance = await ethers.provider.getBalance(owner.address);
