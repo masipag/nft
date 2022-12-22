@@ -5,10 +5,8 @@ async function main() {
     name: "1 MATIC Game",
     symbol: "1MG",
     startDatetime: Date.now(),
-    totalSupply: 100,
     initialPrice: ethers.utils.parseEther("1"),
-    maxPriceFactorPercentage: 100,
-    transferFeePercentage: 50,
+    feePercentage: 50,
   };
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
@@ -18,10 +16,8 @@ async function main() {
     settings.name,
     settings.symbol,
     settings.startDatetime,
-    settings.totalSupply,
     settings.initialPrice,
-    settings.maxPriceFactorPercentage,
-    settings.transferFeePercentage,
+    settings.feePercentage,
   );
   await nft.deployed();
   console.log("Token address:", nft.address);

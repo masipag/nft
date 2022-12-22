@@ -5,6 +5,8 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title NFT
  * @dev Create and manage tickets for an event using NFTs
@@ -18,31 +20,21 @@ contract NFT is ERC721, Ownable {
     Ticket[] tickets;
 
     uint64 public startDateTime;
-    uint64 public totalSupply;
     uint256 public initialPrice;
-    uint64 public maxPriceFactorPercentage;
-    uint64 public transferFeePercentage;
+    uint64 public feePercentage;
     address payable withdrawalAddress;
 
     constructor(
         string memory _name,
         string memory _symbol,
         uint64 _startDateTime,
-        uint64 _totalSupply,
         uint256 _initialPrice,
-        uint64 _maxPriceFactorPercentage,
-        uint64 _transferFeePercentage
+        uint64 _feePercentage
     ) ERC721(_name, _symbol) {
-        require(
-            (_maxPriceFactorPercentage >= 100),
-            "only percentages equal or greater than 100% are allowed"
-        );
         withdrawalAddress = payable(msg.sender);
         startDateTime = uint64(_startDateTime);
-        totalSupply = uint64(_totalSupply);
         initialPrice = uint256(_initialPrice);
-        maxPriceFactorPercentage = uint64(_maxPriceFactorPercentage);
-        transferFeePercentage = uint64(_transferFeePercentage);
+        feePercentage = uint64(_feePercentage);
     }
 
     event TicketCreated(address _by, uint256 _id);
@@ -53,34 +45,18 @@ contract NFT is ERC721, Ownable {
         address _by,
         address _to,
         uint256 _id,
-        uint256 _price
+        uint256 _price,
+        uint256 _fee
     );
     event TicketPriceChanged(address _by, uint256 _id, uint256 _price);
     event Withdrawal(address _by, address _to, uint256 _amount);
 
     /* MODIFIERS */
 
-    modifier belowPriceCap(uint256 _price) {
-        uint256 _maxPrice = initialPrice * (maxPriceFactorPercentage / 100);
-        require(
-            (_price <= _maxPrice),
-            "price must be lower than the maximum price"
-        );
-        _;
-    }
-
     modifier notStarted() {
         require(
             (uint64(block.timestamp) < startDateTime),
             "event has already started"
-        );
-        _;
-    }
-
-    modifier supplyIsSufficient() {
-        require(
-            (tickets.length < totalSupply),
-            "no more supply is available for creating new tickets"
         );
         _;
     }
@@ -106,13 +82,7 @@ contract NFT is ERC721, Ownable {
     function setPrice(
         uint256 _id,
         uint256 _price
-    )
-        public
-        notStarted
-        unused(_id)
-        isOwned(_id)
-        belowPriceCap(_price)
-    {
+    ) public notStarted unused(_id) isOwned(_id) {
         tickets[_id].price = _price;
         emit TicketPriceChanged(msg.sender, _id, _price);
     }
@@ -123,49 +93,19 @@ contract NFT is ERC721, Ownable {
         startDateTime = _startDateTime;
     }
 
-    function setTotalSupply(
-        uint64 _totalSupply
+    function setFeePercentage(
+        uint64 _feePercentage
     ) public notStarted onlyOwner {
-        totalSupply = _totalSupply;
-    }
-
-    function setMaxPriceFactorPercentage(
-        uint64 _maxPriceFactorPercentage
-    ) public notStarted onlyOwner {
-        require(
-            (_maxPriceFactorPercentage >= 100),
-            "only percentages equal or greater than 100% are allowed"
-        );
-        maxPriceFactorPercentage = _maxPriceFactorPercentage;
-    }
-
-    function setTransferFeePercentage(
-        uint64 _transferFeePercentage
-    ) public notStarted onlyOwner {
-        transferFeePercentage = _transferFeePercentage;
-    }
-
-    function setWithdrawalAddress(address payable _address) public onlyOwner {
-        require((_address != address(0)), "must be a valid address");
-        withdrawalAddress = _address;
+        feePercentage = _feePercentage;
     }
 
     // offer ticket for sale, pre-approve transfer
-    function setSale(
-        uint256 _id
-    )
-        external
-        notStarted
-        unused(_id)
-        isOwned(_id)
-    {
+    function setSale(uint256 _id) external notStarted unused(_id) isOwned(_id) {
         tickets[_id].sale = true;
         emit TicketSale(msg.sender, _id, tickets[_id].price);
     }
 
-    function cancelTicketSale(
-        uint256 _id
-    ) external notStarted isOwned(_id) {
+    function cancelTicketSale(uint256 _id) external notStarted isOwned(_id) {
         tickets[_id].sale = false;
         emit TicketSaleCancelled(msg.sender, _id);
     }
@@ -173,12 +113,12 @@ contract NFT is ERC721, Ownable {
     /* GETTERS */
 
     // Returns all the relevant information about a specific ticket
-    function get(
-        uint256 _id
-    ) external view returns (uint256 price, bool sale, bool used) {
-        price = uint256(tickets[_id].price);
-        sale = bool(tickets[_id].sale);
-        used = bool(tickets[_id].used);
+    function get(uint256 _id) external view returns (Ticket memory) {
+        return tickets[_id];
+    }
+
+    function getAll() external view returns (Ticket[] memory) {
+        return tickets;
     }
 
     // Returns the price of a specific ticket
@@ -186,18 +126,9 @@ contract NFT is ERC721, Ownable {
         return tickets[_id].price;
     }
 
-    // Returns the maximum price allowed for a specific ticket
-    function getMaxPrice(
-        uint256 _id
-    ) public view returns (uint256) {
-        return tickets[_id].price * (maxPriceFactorPercentage / 100);
-    }
-
     // Returns the transfer fee of a specific ticket
-    function getCalculatedTransferFee(
-        uint256 _id
-    ) public view returns (uint256) {
-        return tickets[_id].price * (transferFeePercentage / 100);
+    function getFee(uint256 _id) public view returns (uint256) {
+        return (tickets[_id].price * feePercentage) / 100;
     }
 
     // Returns the status of a specific ticket
@@ -206,16 +137,12 @@ contract NFT is ERC721, Ownable {
     }
 
     // Returns the resale status of a specific ticket
-    function isForSale(
-        uint256 _id
-    ) public view returns (bool) {
+    function isForSale(uint256 _id) public view returns (bool) {
         return tickets[_id].sale;
     }
 
     // check ownership of ticket
-    function isOwner(
-        uint256 _id
-    ) external view returns (bool) {
+    function isOwner(uint256 _id) external view returns (bool) {
         require(
             (ownerOf(_id) == msg.sender),
             "no ownership of the given ticket"
@@ -226,12 +153,7 @@ contract NFT is ERC721, Ownable {
     /* Additional functions */
 
     // create initial ticket struct and generate ID (only ever called by buy function)
-    function create()
-        internal
-        notStarted
-        supplyIsSufficient
-        returns (uint256)
-    {
+    function create() internal notStarted returns (uint256) {
         Ticket memory _ticket = Ticket({
             price: initialPrice,
             sale: bool(false),
@@ -244,7 +166,7 @@ contract NFT is ERC721, Ownable {
 
     // mint a Ticket (primary market)
     function buy() external payable notStarted returns (uint256) {
-        require((msg.value >= initialPrice), "not enough balance");
+        require((msg.value >= initialPrice), "not enough payment");
         if (msg.value > initialPrice) {
             payable(msg.sender).transfer(msg.value - initialPrice);
         }
@@ -263,31 +185,38 @@ contract NFT is ERC721, Ownable {
     }
 
     // buy request for a ticket available on secondary market (callable from any approved account/contract)
-    function buyFromUser(
-        uint256 _id
-    ) external payable notStarted {
+    function buyFromReseller(uint256 _id) external payable notStarted {
         require(tickets[_id].sale == true, "ticket not for sale");
         require(getApproved(_id) == msg.sender, "not approved");
+        uint256 _fee = getFee(_id);
         uint256 _priceToPay = tickets[_id].price;
-        address payable _seller = payable(address(uint160(ownerOf(_id))));
-        require((msg.value >= _priceToPay), "not enough balance");
+        uint256 _netPrice = _priceToPay + _fee;
+        require((msg.value >= _netPrice), "not enough payment");
         // return overpaid amount to sender if necessary
-        if (msg.value > _priceToPay) {
-            payable(msg.sender).transfer(msg.value - _priceToPay);
+        if (msg.value > _netPrice) {
+            payable(msg.sender).transfer(msg.value - _netPrice);
         }
-        // pay the seller (price - fee)
-        uint256 _fee = _priceToPay * (transferFeePercentage / 100);
-        uint256 _netPrice = _priceToPay - _fee;
-        _seller.transfer(_netPrice);
-        emit TicketSold(_seller, msg.sender, _id, _priceToPay);
-        safeTransferFrom(_seller, msg.sender, _id);
+        payFee(_fee);
+        address payable _seller = payable(address(uint160(ownerOf(_id))));
+        _seller.transfer(_priceToPay);
+        emit TicketSold(_seller, msg.sender, _id, _priceToPay, _fee);
+        safeTransferFrom(_seller, msg.sender, _id); // token
         tickets[_id].sale = false;
     }
 
-    function destroy(
-        uint256 _id
-    ) public isOwned(_id) {
+    function payFee(uint256 fee) internal {
+        withdrawalAddress.transfer(fee);
+    }
+
+    function destroy(uint256 _id) public onlyOwner {
         _burn(_id);
+        // Deleting an element creates a gap in the array.
+        // One trick to keep the array compact is to
+        // move the last element into the place to delete.
+        uint256 id = tickets.length - 1;
+        tickets[_id] = tickets[id];
+        // Remove the last element
+        tickets.pop();
         emit TicketDestroyed(msg.sender, _id);
     }
 
