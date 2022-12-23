@@ -6,9 +6,9 @@ describe("NFT", function () {
   const settings = {
     name: "2 MATIC Game",
     symbol: "2MG",
-    startDatetime: Date.now(),
-    initialPrice: ethers.utils.parseEther("2"),
-    feePercentage: 50,
+    startAt: Math.floor(Date.now() / 1000),
+    initPrice: ethers.utils.parseEther("2"),
+    feePct: 50,
   };
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
@@ -20,9 +20,9 @@ describe("NFT", function () {
     const masipagNft = await NFT.deploy(
       settings.name,
       settings.symbol,
-      settings.startDatetime,
-      settings.initialPrice,
-      settings.feePercentage,
+      settings.startAt,
+      settings.initPrice,
+      settings.feePct,
     );
     await masipagNft.deployed();
 
@@ -45,29 +45,21 @@ describe("NFT", function () {
   describe("Buy and Sell", async function () {
 
     it("Should be able to manage tickets", async function () {
-      const { masipagNft, owner, buyer, seller } = await loadFixture(deployNftFixture);
+      const { masipagNft, buyer, seller } = await loadFixture(deployNftFixture);
 
-      await masipagNft.connect(buyer).buy({ value: settings.initialPrice });
-      let ticket = await masipagNft.get(0);
-      expect(ticket.price).to.equal(settings.initialPrice);
+      await masipagNft.connect(buyer).buy({ value: settings.initPrice });
+      let ticket = await masipagNft.get(buyer.address);
+      expect(ticket.price).to.equal(settings.initPrice);
       expect(ticket.sale).to.equal(false);
       expect(ticket.used).to.equal(false);
 
-      let tickets = await masipagNft.getAll();
-      expect(tickets.length).to.equal(1);
-
-      await masipagNft.connect(seller).buy({ value: settings.initialPrice });
-      tickets = await masipagNft.getAll();
-      expect(tickets.length).to.equal(2);
-
-      const newPrice = settings.initialPrice.add(1);
-      await masipagNft.connect(seller).setPrice(1, settings.initialPrice.add(1));
-      ticket = await masipagNft.get(1);
+      let newPrice = settings.initPrice.add(1);
+      await masipagNft.connect(buyer).setPrice(buyer.address, settings.initPrice.add(1));
+      ticket = await masipagNft.get(buyer.address);
       expect(ticket.price).to.equal(newPrice);
 
-      await masipagNft.connect(owner).destroy(0);
-      tickets = await masipagNft.getAll();
-      expect(tickets.length).to.equal(1);
+      // const winner = await masipagNft.winner();
+      // console.log(buyer.address, winner);
     });
 
     it("Should be able to buy and sell tickets", async function () {
@@ -76,18 +68,18 @@ describe("NFT", function () {
       const ownerBalance = await ethers.provider.getBalance(owner.address);
       const contractBalance = await ethers.provider.getBalance(masipagNft.address);
 
-      await masipagNft.connect(seller).buy({ value: settings.initialPrice });
+      await masipagNft.connect(seller).buy({ value: settings.initPrice });
       expect(await masipagNft.balanceOf(seller.address)).to.equal(1);
-      expect(await ethers.provider.getBalance(masipagNft.address)).to.equal(contractBalance.add(settings.initialPrice));
-      
-      await masipagNft.connect(seller).setSale(0);
+      expect(await ethers.provider.getBalance(masipagNft.address)).to.equal(contractBalance.add(settings.initPrice));
+
+      await masipagNft.connect(seller).setSale(seller.address);
       expect(await masipagNft.balanceOf(buyer.address)).to.equal(0);
 
-      await masipagNft.connect(seller).approveBuy(0, buyer.address);
-      const priceToPay = await masipagNft.getPrice(0);
-      const fee = await masipagNft.getFee(0);
+      await masipagNft.connect(seller).approveBuy(seller.address, buyer.address);
+      const priceToPay = await masipagNft.getPrice(seller.address);
+      const fee = await masipagNft.getFee(seller.address);
       const netPrice = priceToPay.add(fee);
-      await masipagNft.connect(buyer).buyFromReseller(0, { value: netPrice });
+      await masipagNft.connect(buyer).buyFromReseller(seller.address, { value: netPrice });
       expect(await masipagNft.balanceOf(seller.address)).to.equal(0);
       expect(await masipagNft.balanceOf(buyer.address)).to.equal(1);
       expect(await ethers.provider.getBalance(owner.address)).to.equal(ownerBalance.add(fee));

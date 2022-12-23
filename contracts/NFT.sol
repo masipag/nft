@@ -7,222 +7,189 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "hardhat/console.sol";
 
-/**
- * @title NFT
- * @dev Create and manage tickets for an event using NFTs
- */
 contract NFT is ERC721, Ownable {
     struct Ticket {
         uint256 price;
         bool sale;
         bool used;
     }
-    Ticket[] tickets;
+    mapping(address => Ticket) tickets;
+    address[] ticketKeys;
 
-    uint64 public startDateTime;
-    uint256 public initialPrice;
-    uint64 public feePercentage;
-    address payable withdrawalAddress;
+    uint64 public startAt;
+    uint256 public initPrice;
+    uint64 public feePct;
+    address payable payoutAddr;
 
     constructor(
         string memory _name,
         string memory _symbol,
-        uint64 _startDateTime,
-        uint256 _initialPrice,
-        uint64 _feePercentage
+        uint64 _startAt,
+        uint256 _initPrice,
+        uint64 _feePct
     ) ERC721(_name, _symbol) {
-        withdrawalAddress = payable(msg.sender);
-        startDateTime = uint64(_startDateTime);
-        initialPrice = uint256(_initialPrice);
-        feePercentage = uint64(_feePercentage);
+        payoutAddr = payable(msg.sender);
+        startAt = uint64(_startAt);
+        initPrice = uint256(_initPrice);
+        feePct = uint64(_feePct);
     }
 
-    event TicketCreated(address _by, uint256 _id);
-    event TicketDestroyed(address _by, uint256 _id);
-    event TicketSale(address _by, uint256 _id, uint256 _price);
-    event TicketSaleCancelled(address _by, uint256 _id);
+    event TicketCreated(address id);
+    event TicketSale(address id, uint256 price);
+    event TicketSaleCancelled(address id);
     event TicketSold(
-        address _by,
-        address _to,
-        uint256 _id,
-        uint256 _price,
-        uint256 _fee
+        address to,
+        address id,
+        uint256 price,
+        uint256 fee
     );
-    event TicketPriceChanged(address _by, uint256 _id, uint256 _price);
-    event Withdrawal(address _by, address _to, uint256 _amount);
+    event TicketPriceChanged(address id, uint256 price);
+    event Withdrawal(address by, address to, uint256 amount);
 
-    /* MODIFIERS */
-
-    modifier notStarted() {
-        require(
-            (uint64(block.timestamp) < startDateTime),
-            "event has already started"
-        );
+    modifier started() {
+        require((uint64(block.timestamp) >= startAt), "event not started");
         _;
     }
 
-    // check if the ticket has not been used yet
-    modifier unused(uint256 _id) {
-        require(tickets[_id].used != true, "ticket already used");
+    modifier unused(address id) {
+        require(tickets[id].used != true, "ticket already used");
         _;
     }
 
-    // check if the function caller is the ticket owner
-    modifier isOwned(uint256 _id) {
-        require((ownerOf(_id) == msg.sender), "no permission");
+    modifier isOwned(address id) {
+        uint256 tokenId = uint256(uint160(id));
+        require((ownerOf(tokenId) == msg.sender), "no permission");
         _;
     }
 
-    /* SETTERS */
-
-    function use(uint256 _id) public onlyOwner {
-        tickets[_id].used = true;
+    function use(address id) public onlyOwner {
+        tickets[id].used = true;
     }
 
     function setPrice(
-        uint256 _id,
-        uint256 _price
-    ) public notStarted unused(_id) isOwned(_id) {
-        tickets[_id].price = _price;
-        emit TicketPriceChanged(msg.sender, _id, _price);
+        address id,
+        uint256 price
+    ) public started unused(id) isOwned(id) {
+        require((price >= initPrice), "price must be >= initial price");
+        tickets[id].price = price;
+        emit TicketPriceChanged(msg.sender, price);
     }
 
-    function setStartDateTime(
-        uint64 _startDateTime
-    ) public notStarted onlyOwner {
-        startDateTime = _startDateTime;
+    function setStartAt(uint64 _startAt) public started onlyOwner {
+        startAt = _startAt;
     }
 
-    function setFeePercentage(
-        uint64 _feePercentage
-    ) public notStarted onlyOwner {
-        feePercentage = _feePercentage;
+    function setFeePct(uint64 _feePct) public started onlyOwner {
+        feePct = _feePct;
     }
 
-    // offer ticket for sale, pre-approve transfer
-    function setSale(uint256 _id) external notStarted unused(_id) isOwned(_id) {
-        tickets[_id].sale = true;
-        emit TicketSale(msg.sender, _id, tickets[_id].price);
+    function setSale(address id) external started unused(id) isOwned(id) {
+        tickets[id].sale = true;
+        emit TicketSale(msg.sender, tickets[id].price);
     }
 
-    function cancelTicketSale(uint256 _id) external notStarted isOwned(_id) {
-        tickets[_id].sale = false;
-        emit TicketSaleCancelled(msg.sender, _id);
+    function cancelTicketSale(address id) external started isOwned(id) {
+        tickets[id].sale = false;
+        emit TicketSaleCancelled(msg.sender);
     }
 
-    /* GETTERS */
-
-    // Returns all the relevant information about a specific ticket
-    function get(uint256 _id) external view returns (Ticket memory) {
-        return tickets[_id];
+    function get(address id) external view returns (Ticket memory) {
+        return tickets[id];
     }
 
-    function getAll() external view returns (Ticket[] memory) {
-        return tickets;
+    function getPrice(address id) public view returns (uint256) {
+        return tickets[id].price;
     }
 
-    // Returns the price of a specific ticket
-    function getPrice(uint256 _id) public view returns (uint256) {
-        return tickets[_id].price;
+    function getFee(address id) public view returns (uint256) {
+        return (tickets[id].price * feePct) / 100;
     }
 
-    // Returns the transfer fee of a specific ticket
-    function getFee(uint256 _id) public view returns (uint256) {
-        return (tickets[_id].price * feePercentage) / 100;
+    function isUsed(address id) public view returns (bool) {
+        return tickets[id].used;
     }
 
-    // Returns the status of a specific ticket
-    function isUsed(uint256 _id) public view returns (bool) {
-        return tickets[_id].used;
+    function isForSale(address id) public view returns (bool) {
+        return tickets[id].sale;
     }
 
-    // Returns the resale status of a specific ticket
-    function isForSale(uint256 _id) public view returns (bool) {
-        return tickets[_id].sale;
-    }
-
-    // check ownership of ticket
-    function isOwner(uint256 _id) external view returns (bool) {
+    function isOwner(address id) external view returns (bool) {
+        uint256 tokenId = uint256(uint160(id));
         require(
-            (ownerOf(_id) == msg.sender),
+            (ownerOf(tokenId) == msg.sender),
             "no ownership of the given ticket"
         );
         return true;
     }
 
-    /* Additional functions */
-
-    // create initial ticket struct and generate ID (only ever called by buy function)
-    function create() internal notStarted returns (uint256) {
+    function buy() external payable started returns (address) {
+        require((msg.value >= initPrice), "not enough payment");
+        address id = msg.sender;
+        if (msg.value > initPrice) {
+            payable(id).transfer(msg.value - initPrice);
+        }
         Ticket memory _ticket = Ticket({
-            price: initialPrice,
+            price: initPrice,
             sale: bool(false),
             used: bool(false)
         });
-        tickets.push(_ticket);
-        uint256 _id = tickets.length - 1;
-        return _id;
+        tickets[id] = _ticket;
+        ticketKeys.push(id);
+        _mint(id, uint256(uint160(id)));
+        emit TicketCreated(id);
+        return id;
     }
 
-    // mint a Ticket (primary market)
-    function buy() external payable notStarted returns (uint256) {
-        require((msg.value >= initialPrice), "not enough payment");
-        if (msg.value > initialPrice) {
-            payable(msg.sender).transfer(msg.value - initialPrice);
-        }
-        uint256 _id = create();
-        _mint(msg.sender, _id);
-        emit TicketCreated(msg.sender, _id);
-        return _id;
-    }
-
-    // approve a specific buyer of the ticket to buy my ticket
     function approveBuy(
-        uint256 _id,
+        address id,
         address _buyer
-    ) public notStarted isOwned(_id) {
-        approve(_buyer, _id);
+    ) public started isOwned(id) {
+        uint256 tokenId = uint256(uint160(id));
+        approve(_buyer, tokenId);
     }
 
-    // buy request for a ticket available on secondary market (callable from any approved account/contract)
-    function buyFromReseller(uint256 _id) external payable notStarted {
-        require(tickets[_id].sale == true, "ticket not for sale");
-        require(getApproved(_id) == msg.sender, "not approved");
-        uint256 _fee = getFee(_id);
-        uint256 _priceToPay = tickets[_id].price;
-        uint256 _netPrice = _priceToPay + _fee;
+    function buyFromReseller(address id) external payable started {
+        uint256 tokenId = uint256(uint160(id));
+        require(tickets[id].sale == true, "ticket not for sale");
+        require(getApproved(tokenId) == msg.sender, "not approved");
+        uint256 fee = getFee(id);
+        uint256 priceToPay = tickets[id].price;
+        uint256 _netPrice = priceToPay + fee;
         require((msg.value >= _netPrice), "not enough payment");
-        // return overpaid amount to sender if necessary
         if (msg.value > _netPrice) {
             payable(msg.sender).transfer(msg.value - _netPrice);
         }
-        payFee(_fee);
-        address payable _seller = payable(address(uint160(ownerOf(_id))));
-        _seller.transfer(_priceToPay);
-        emit TicketSold(_seller, msg.sender, _id, _priceToPay, _fee);
-        safeTransferFrom(_seller, msg.sender, _id); // token
-        tickets[_id].sale = false;
+        payFee(fee);
+        address payable _seller = payable(address(uint160(ownerOf(tokenId))));
+        _seller.transfer(priceToPay);
+        emit TicketSold(_seller, msg.sender, priceToPay, fee);
+        safeTransferFrom(_seller, msg.sender, tokenId);
+        tickets[id].sale = false;
     }
 
     function payFee(uint256 fee) internal {
-        withdrawalAddress.transfer(fee);
+        payoutAddr.transfer(fee);
     }
 
-    function destroy(uint256 _id) public onlyOwner {
-        _burn(_id);
-        // Deleting an element creates a gap in the array.
-        // One trick to keep the array compact is to
-        // move the last element into the place to delete.
-        uint256 id = tickets.length - 1;
-        tickets[_id] = tickets[id];
-        // Remove the last element
-        tickets.pop();
-        emit TicketDestroyed(msg.sender, _id);
-    }
-
-    function withdraw() public onlyOwner {
+    function payout() public onlyOwner {
         uint256 balance = uint256(address(this).balance);
-        withdrawalAddress.transfer(balance);
-        emit Withdrawal(msg.sender, withdrawalAddress, balance);
+        // uint256 fee = (balance * feePct) / 100;
+        // winnerAddress.transfer(balance - fee);
+        // payoutAddr.transfer(fee);
+        emit Withdrawal(msg.sender, payoutAddr, balance);
+    }
+
+    function random() internal view returns (uint) {
+        return
+            uint(
+                keccak256(
+                    abi.encodePacked(block.difficulty, block.timestamp, ticketKeys)
+                )
+            );
+    }
+
+    function winner() public view returns (Ticket memory) {
+        uint256 idx = random() % ticketKeys.length;
+        return tickets[ticketKeys[idx]];
     }
 }

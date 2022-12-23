@@ -2,11 +2,11 @@ import { ethers } from "hardhat";
 
 async function main() {
   const settings = {
-    name: "1 MATIC Game",
-    symbol: "1MG",
-    startDatetime: Date.now(),
-    initialPrice: ethers.utils.parseEther("1"),
-    feePercentage: 50,
+    name: "2 MATIC Game",
+    symbol: "2MG",
+    startAt: Math.floor(Date.now() / 1000),
+    initPrice: ethers.utils.parseEther("2"),
+    feePct: 50,
   };
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
@@ -15,9 +15,9 @@ async function main() {
   const nft = await Nft.deploy(
     settings.name,
     settings.symbol,
-    settings.startDatetime,
-    settings.initialPrice,
-    settings.feePercentage,
+    settings.startAt,
+    settings.initPrice,
+    settings.feePct,
   );
   await nft.deployed();
   console.log("Token address:", nft.address);
