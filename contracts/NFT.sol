@@ -44,7 +44,7 @@ contract NFT is ERC721, Ownable {
         uint256 fee
     );
     event TicketPriceChanged(address id, uint256 price);
-    event Withdrawal(address by, address to, uint256 amount);
+    event Withdrawal(address by, address to, uint256 amount, uint256 fee);
 
     modifier started() {
         require((uint64(block.timestamp) >= startAt), "event not started");
@@ -83,7 +83,7 @@ contract NFT is ERC721, Ownable {
         feePct = _feePct;
     }
 
-    function setSale(address id) external started unused(id) isOwned(id) {
+    function setForSale(address id) external started unused(id) isOwned(id) {
         tickets[id].sale = true;
         emit TicketSale(msg.sender, tickets[id].price);
     }
@@ -122,30 +122,30 @@ contract NFT is ERC721, Ownable {
         return true;
     }
 
-    function buy() external payable started returns (address) {
+    function buy() external payable started returns (address id, Ticket memory ticket) {
         require((msg.value >= initPrice), "not enough payment");
-        address id = msg.sender;
+        id = msg.sender;
         if (msg.value > initPrice) {
             payable(id).transfer(msg.value - initPrice);
         }
-        Ticket memory _ticket = Ticket({
+        ticket = Ticket({
             price: initPrice,
             sale: bool(false),
             used: bool(false)
         });
-        tickets[id] = _ticket;
+        tickets[id] = ticket;
         ticketKeys.push(id);
-        _mint(id, uint256(uint160(id)));
+        uint256 tokenId = uint256(uint160(id));
+        _mint(id, tokenId);
         emit TicketCreated(id);
-        return id;
     }
 
     function approveBuy(
         address id,
-        address _buyer
+        address buyer
     ) public started isOwned(id) {
         uint256 tokenId = uint256(uint160(id));
-        approve(_buyer, tokenId);
+        approve(buyer, tokenId);
     }
 
     function buyFromReseller(address id) external payable started {
@@ -154,16 +154,16 @@ contract NFT is ERC721, Ownable {
         require(getApproved(tokenId) == msg.sender, "not approved");
         uint256 fee = getFee(id);
         uint256 priceToPay = tickets[id].price;
-        uint256 _netPrice = priceToPay + fee;
-        require((msg.value >= _netPrice), "not enough payment");
-        if (msg.value > _netPrice) {
-            payable(msg.sender).transfer(msg.value - _netPrice);
+        uint256 netPrice = priceToPay + fee;
+        require((msg.value >= netPrice), "not enough payment");
+        if (msg.value > netPrice) {
+            payable(msg.sender).transfer(msg.value - netPrice);
         }
         payFee(fee);
-        address payable _seller = payable(address(uint160(ownerOf(tokenId))));
-        _seller.transfer(priceToPay);
-        emit TicketSold(_seller, msg.sender, priceToPay, fee);
-        safeTransferFrom(_seller, msg.sender, tokenId);
+        address payable seller = payable(address(uint160(ownerOf(tokenId))));
+        seller.transfer(priceToPay);
+        emit TicketSold(seller, msg.sender, priceToPay, fee);
+        safeTransferFrom(seller, msg.sender, tokenId);
         tickets[id].sale = false;
     }
 
@@ -171,12 +171,12 @@ contract NFT is ERC721, Ownable {
         payoutAddr.transfer(fee);
     }
 
-    function payout() public onlyOwner {
+    function payout(address winnerAddr) public onlyOwner {
         uint256 balance = uint256(address(this).balance);
-        // uint256 fee = (balance * feePct) / 100;
-        // winnerAddress.transfer(balance - fee);
-        // payoutAddr.transfer(fee);
-        emit Withdrawal(msg.sender, payoutAddr, balance);
+        uint256 fee = (balance * feePct) / 100;
+        payable(winnerAddr).transfer(balance - fee);
+        payFee(fee);
+        emit Withdrawal(msg.sender, winnerAddr, balance, fee);
     }
 
     function random() internal view returns (uint) {
@@ -187,9 +187,10 @@ contract NFT is ERC721, Ownable {
                 )
             );
     }
-
-    function winner() public view returns (Ticket memory) {
+    
+    function winner() public view returns (address id, Ticket memory ticket) {
         uint256 idx = random() % ticketKeys.length;
-        return tickets[ticketKeys[idx]];
+        id = ticketKeys[idx];
+        ticket = tickets[id];
     }
 }

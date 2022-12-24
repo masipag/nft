@@ -59,7 +59,7 @@ describe("NFT", function () {
       expect(ticket.price).to.equal(newPrice);
 
       // const winner = await masipagNft.winner();
-      // console.log(buyer.address, winner);
+      // console.log(buyer.address, winner[0], winner[1]);
     });
 
     it("Should be able to buy and sell tickets", async function () {
@@ -72,7 +72,7 @@ describe("NFT", function () {
       expect(await masipagNft.balanceOf(seller.address)).to.equal(1);
       expect(await ethers.provider.getBalance(masipagNft.address)).to.equal(contractBalance.add(settings.initPrice));
 
-      await masipagNft.connect(seller).setSale(seller.address);
+      await masipagNft.connect(seller).setForSale(seller.address);
       expect(await masipagNft.balanceOf(buyer.address)).to.equal(0);
 
       await masipagNft.connect(seller).approveBuy(seller.address, buyer.address);
