@@ -130,8 +130,8 @@ contract NFT is ERC721, Ownable {
         }
         ticket = Ticket({
             price: initPrice,
-            sale: bool(false),
-            used: bool(false)
+            sale: false,
+            used: false
         });
         tickets[id] = ticket;
         ticketKeys.push(id);
